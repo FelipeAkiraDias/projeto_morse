@@ -1,0 +1,61 @@
+//Esse programa manda sinais via rádio
+
+
+#include <SPI.h>
+#include <LoRa.h>
+
+// LoRa pin definitions for Heltec WiFi LoRa 32 V2
+#define LORA_SCK     5
+#define LORA_MISO    19
+#define LORA_MOSI    27
+#define LORA_SS      18
+#define LORA_RST     14
+#define LORA_DIO0    26
+
+#define LORA_BAND    915E6  // Set this to 433E6, 868E6 or 915E6 depending on your region
+
+unsigned long lastSendTime = 0;
+unsigned long interval = 5000; // Send every 5 seconds
+int counter = 0;
+
+SPIClass spiLoRa(VSPI);  // Use VSPI on the ESP32
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+
+  // Setup custom SPI pins
+  spiLoRa.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_SS);
+
+  // Set LoRa pins
+  LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
+
+  // Initialize LoRa
+  LoRa.setSPI(spiLoRa);  // set custom SPI bus
+    if (!LoRa.begin(LORA_BAND)) {
+
+    Serial.println("LoRa init failed. Check your connections.");
+    while (true) delay(1000);
+  }
+
+  Serial.println("LoRa init succeeded.");
+  Serial.print("Frequency: ");
+  Serial.println(LORA_BAND);
+}
+
+void loop() {
+  unsigned long now = millis();
+  if (now - lastSendTime > interval) {
+    lastSendTime = now;
+
+    String message = "Hello " + String(counter++);
+    Serial.print("Sending: ");
+    Serial.println(message);
+
+    LoRa.beginPacket();
+    LoRa.print(message);
+    LoRa.endPacket();
+
+    Serial.println("Packet sent.\n");
+  }
+}
