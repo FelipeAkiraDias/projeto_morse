@@ -1,0 +1,92 @@
+// ----- Morse Interpreter for Arduino -----
+// DOT button on pin 12 (LOW when pressed)
+// DASH button on pin 13 (LOW when pressed)
+// Prints decoded text to Serial
+
+const int PIN_DOT  = 14;
+const int PIN_DASH = 13;
+
+// Timings (ms)
+const unsigned int SYMBOL_GAP = 300;   // time between . and - inside one letter
+const unsigned int LETTER_GAP = 800;   // pause to finish a letter
+const unsigned int WORD_GAP   = 1500;  // pause to insert a space
+
+String currentMorse = "";
+unsigned long lastInputTime = 0;
+
+struct MorseEntry {
+  const char* code;
+  char letter;
+};
+
+MorseEntry morseTable[] = {
+  {".-", 'A'},   {"-...", 'B'}, {"-.-.", 'C'}, {"-..", 'D'},
+  {".", 'E'},    {"..-.", 'F'}, {"--.", 'G'},  {"....", 'H'},
+  {"..", 'I'},   {".---", 'J'}, {"-.-", 'K'},  {".-..", 'L'},
+  {"--", 'M'},   {"-.", 'N'},   {"---", 'O'},  {".--.", 'P'},
+  {"--.-", 'Q'}, {".-.", 'R'},  {"...", 'S'},  {"-", 'T'},
+  {"..-", 'U'},  {"...-", 'V'}, {".--", 'W'},  {"-..-", 'X'},
+  {"-.--", 'Y'}, {"--..", 'Z'},
+  {"-----", '0'}, {".----", '1'}, {"..---", '2'}, {"...--", '3'},
+  {"....-", '4'}, {".....", '5'}, {"-....", '6'}, {"--...", '7'},
+  {"---..", '8'}, {"----.", '9'}
+};
+
+char decodeMorse(String code) {
+  for (int i = 0; i < sizeof(morseTable) / sizeof(MorseEntry); i++) {
+    if (code == morseTable[i].code) return morseTable[i].letter;
+  }
+  return '?';  // unknown sequence
+}
+
+void setup() {
+  pinMode(PIN_DOT,  INPUT_PULLUP);
+  pinMode(PIN_DASH, INPUT_PULLUP);
+
+  Serial.begin(115200);
+  Serial.println("Morse Code Interpreter Ready");
+}
+
+void loop() {
+  unsigned long now = millis();
+  bool dotPressed  = (digitalRead(PIN_DOT)  == LOW);
+  bool dashPressed = (digitalRead(PIN_DASH) == LOW);
+
+  // Handle input
+  if (dotPressed) {
+    currentMorse += '.';
+    lastInputTime = now;
+    Serial.print(".");
+    delay(200);  // debounce
+  }
+  else if (dashPressed) {
+    currentMorse += '-';
+    lastInputTime = now;
+    Serial.print("-");
+    delay(200);  // debounce
+  }
+
+  // Check for letter or word boundaries
+  unsigned long sinceLast = now - lastInputTime;
+
+  if (currentMorse.length() > 0) {
+    // End of letter
+    if (sinceLast > LETTER_GAP && sinceLast < WORD_GAP) {
+      char decoded = decodeMorse(currentMorse);
+      Serial.print(" -> ");
+      Serial.println(decoded);
+      currentMorse = "";
+    }
+
+    // End of word
+    if (sinceLast >= WORD_GAP) {
+      char decoded = decodeMorse(currentMorse);
+      Serial.print(" -> ");
+      Serial.print(decoded);
+      Serial.print("   ");
+      Serial.println("(space)");
+      currentMorse = "";
+      Serial.print(" ");
+    }
+  }
+}
